@@ -1,0 +1,43 @@
+{
+  "info": {
+    "name": "GymPal E2E",
+    "_postman_id": "gympal-e2e",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Dashboard",
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:5000/"
+      }
+    },
+    {
+      "name": "Create Workout",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "date", "value": "2025-09-22" },
+            { "key": "exercise", "value": "Squat" },
+            { "key": "reps", "value": "5" },
+            { "key": "weight", "value": "195" },
+            { "key": "notes", "value": "postman e2e" }
+          ]
+        },
+        "url": "http://127.0.0.1:5000/workouts"
+      }
+    },
+    {
+      "name": "Metrics Squat",
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:5000/api/metrics/Squat"
+      }
+    }
+  ]
+}

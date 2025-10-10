@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4 mb-3">Dashboard</h1>
+<p class="text-muted">
+  Log at least two different weeks of <strong>Squat</strong> to see a forecast.
+</p>
+<p class="text-muted">Forecasts appear when at least two weeks of data are available.</p>
+<canvas id="chart" height="120"></canvas>
+<script>
+(async () => {
+  const resp = await fetch('/api/metrics/Squat');
+  const data = await resp.json();
+  const labels = data.points.map(p => p.iso_week).concat(["+1","+2","+3","+4"]);
+  const actual = data.points.map(p => p.best_e1rm);
+  const forecast = Array(actual.length).fill(null).concat(data.forecast);
+  new Chart(document.getElementById('chart').getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: 'Weekly Best e1RM (Squat)', data: actual, tension: 0.2 },
+      { label: 'Forecast (4 weeks)', data: forecast, tension: 0.2 }
+    ]},
+    options: { plugins: { legend: { position: 'bottom' }}, scales: { y: { beginAtZero: false } } }
+  });
+})();
+</script>
+{% endblock %}

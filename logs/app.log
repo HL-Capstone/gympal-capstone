@@ -1,0 +1,8 @@
+2025-10-08 21:59:20,940 INFO workout_created user=1 exercise=Barbell Curl reps=12 weight=45.0 date=2025-10-08
+2025-10-09 17:15:59,133 INFO workout_created user=1 exercise=Deadlift reps=8 weight=150.0 date=2025-10-06
+2025-10-09 19:07:09,458 INFO workout_created user=1 exercise=Squat reps=5 weight=185.0 date=2025-09-15
+2025-10-09 19:23:55,954 INFO workout_created user=1 exercise=Squat reps=5 weight=195.0 date=2025-09-22
+2025-10-09 23:40:40,426 ERROR healthz error: Textual SQL expression 'SELECT 1' should be explicitly declared as text('SELECT 1')
+2025-10-09 23:45:17,415 ERROR healthz error: Textual SQL expression 'SELECT 1' should be explicitly declared as text('SELECT 1')
+2025-10-09 23:45:19,372 ERROR healthz error: Textual SQL expression 'SELECT 1' should be explicitly declared as text('SELECT 1')
+2025-10-09 23:59:59,400 INFO workout_created user=1 exercise=Squat reps=5 weight=185.0 date=2025-09-15
