@@ -4,6 +4,9 @@ from datetime import date
 from collections import defaultdict
 import logging, sys, os
 from logging.handlers import RotatingFileHandler
+from dotenv import load_dotenv
+load_dotenv()
+
 
 from sqlalchemy import create_engine, Column, Integer, Float, String, Date, ForeignKey, UniqueConstraint, Index, text
 
@@ -311,14 +314,17 @@ def server_error(e):
     return render_template("500.html"), 500
 
 @app.after_request
-def set_security_headers(resp):
+def add_security_headers(resp):
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["Referrer-Policy"] = "no-referrer"
+    # Allow our site + jsDelivr (Chart.js & Bootstrap if you use it)
     resp.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' https://cdn.jsdelivr.net; "
         "style-src 'self' https://cdn.jsdelivr.net; "
-        "img-src 'self' data:;"
+        "img-src 'self' data:; "
+        "connect-src 'self';"
     )
     return resp
+
