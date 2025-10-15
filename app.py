@@ -93,6 +93,14 @@ Index("ix_sets_exercise", Set.exercise_id)
 def init_db():
     Base.metadata.create_all(engine)
 
+def safe_init_db():
+    try:
+        init_db()
+        logger.info("DB init OK")
+    except Exception as e:
+        logger.error(f"init_db failed: {e}")
+
+
 # ---------- Metrics ----------
 def epley_e1rm(weight: float, reps: int) -> float:
     if not weight or not reps or reps <= 0:
