@@ -328,3 +328,6 @@ def add_security_headers(resp):
     )
     return resp
 
+@app.get("/ping")
+def ping():
+    return "pong", 200
