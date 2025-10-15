@@ -2,4 +2,4 @@ Flask==3.0.3
 SQLAlchemy==2.0.32
 gunicorn==21.2.0
 python-dotenv==1.0.1
-psycopg[binary]==3.2.1 ; platform_system != "Windows"
+psycopg[binary]==3.1.19 ; platform_system != "Windows"
