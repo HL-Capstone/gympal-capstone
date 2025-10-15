@@ -128,7 +128,7 @@ def linear_forecast(values, weeks_ahead=4):
 
 # ---------- Flask ----------
 app = Flask(__name__, instance_relative_config=True)
-app.config["SECRET_KEY"] = "dev-secret"
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret")
 init_db()
 
 # Single-user mode (no auth)
