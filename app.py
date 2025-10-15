@@ -12,8 +12,12 @@ from sqlalchemy import create_engine, Column, Integer, Float, String, Date, Fore
 
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, relationship, scoped_session
 
+# --- logging (serverless-safe) ---
+LOG_DIR = os.environ.get("LOG_DIR")
+if not LOG_DIR:
+    # Vercel serverless is read-only except /tmp
+    LOG_DIR = "/tmp/logs" if os.environ.get("VERCEL") else "logs"
 
-LOG_DIR = "logs"
 os.makedirs(LOG_DIR, exist_ok=True)
 
 logger = logging.getLogger("gympal")
@@ -21,16 +25,19 @@ logger.setLevel(logging.INFO)
 
 fmt = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
 
-# file
-fh = RotatingFileHandler(os.path.join(LOG_DIR, "app.log"), maxBytes=500_000, backupCount=2)
-fh.setFormatter(fmt); fh.setLevel(logging.INFO)
-logger.addHandler(fh)
-
-# console
+# Console handler (always OK)
 ch = logging.StreamHandler(sys.stdout)
 ch.setFormatter(fmt); ch.setLevel(logging.INFO)
 logger.addHandler(ch)
 
+# File handler (best-effort)
+try:
+    from logging.handlers import RotatingFileHandler
+    fh = RotatingFileHandler(os.path.join(LOG_DIR, "app.log"), maxBytes=500_000, backupCount=2)
+    fh.setFormatter(fmt); fh.setLevel(logging.INFO)
+    logger.addHandler(fh)
+except Exception as e:
+    logger.warning(f"File logging disabled: {e}")
 
 # ---------- DB setup ----------
 DB_URL = os.environ.get("DATABASE_URL") or "sqlite:///instance/gympal.sqlite3"
