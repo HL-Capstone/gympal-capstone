@@ -5,6 +5,7 @@ from collections import defaultdict
 import logging, sys, os
 from logging.handlers import RotatingFileHandler
 from dotenv import load_dotenv
+from werkzeug.exceptions import NotFound
 load_dotenv()
 
 
@@ -160,6 +161,20 @@ DEFAULT_EXERCISES = [
     ("Barbell Curl","Biceps"), ("Triceps Pushdown","Triceps"), ("Lateral Raise","Shoulders")
 ]
 
+def recent_workouts_for_user(db, user_id: int, limit=20):
+    items = (db.query(Workout)
+               .filter_by(user_id=user_id)
+               .order_by(Workout.date.desc())
+               .limit(limit).all())
+    rows = []
+    for w in items:
+        pairs = (db.query(Set, Exercise)
+                 .join(Exercise, Exercise.id == Set.exercise_id)
+                 .filter(Set.workout_id == w.id).all())
+        rows.append((w, pairs))
+    return rows
+
+
 @app.route("/")
 def index():
     db = SessionLocal()
@@ -169,7 +184,15 @@ def index():
             if not db.query(Exercise).filter_by(user_id=user.id, name=name).first():
                 db.add(Exercise(user_id=user.id, name=name, tag=tag))
         db.commit()
-        return render_template("index.html")
+        
+        # Pass exercise names + a default to the template
+        ex_names = [e.name for e in db.query(Exercise)
+                    .filter_by(user_id=user.id)
+                    .order_by(Exercise.name).all()]
+        default_ex = "Squat" if "Squat" in ex_names else (ex_names[0] if ex_names else "Squat")
+        
+        return render_template("index.html", ex_names=ex_names, default_ex=default_ex)
+
     finally:
         SessionLocal.remove()
 
@@ -180,72 +203,64 @@ def workouts():
         user = get_user(db)
 
         if request.method == "POST":
-            # --- read inputs (use .get to avoid error) ---
-            ex_name  = (request.form.get("exercise") or "").strip()
-            reps_raw = (request.form.get("reps") or "").strip()
-            weight_raw = (request.form.get("weight") or "").strip()
-            notes    = request.form.get("notes", "")
-            date_str = request.form.get("date") or str(date.today())
+            # read inputs
+            form_vals = {
+                "date": (request.form.get("date") or str(date.today())),
+                "exercise": (request.form.get("exercise") or "").strip(),
+                "reps": (request.form.get("reps") or "").strip(),
+                "weight": (request.form.get("weight") or "").strip(),
+                "notes": request.form.get("notes", ""),
+            }
 
-            # --- validate inputs ---
-            if not ex_name:
+            # validate inputs
+            if not form_vals["exercise"]:
                 flash("Please enter or select an exercise.", "warning")
-                return redirect(url_for("workouts"))
+                ex_names = [e.name for e in db.query(Exercise).filter_by(user_id=user.id).order_by(Exercise.name).all()]
+                rows = recent_workouts_for_user(db, user.id)
+                return render_template("workouts.html", ex_names=ex_names, workouts=rows, form=form_vals)
 
-            # reps must be a positive whole number (no decimals)
-            if not reps_raw.isdigit() or int(reps_raw) <= 0:
+            if not form_vals["reps"].isdigit() or int(form_vals["reps"]) <= 0:
                 flash("Reps must be a positive whole number.", "warning")
-                return redirect(url_for("workouts"))
+                ex_names = [e.name for e in db.query(Exercise).filter_by(user_id=user.id).order_by(Exercise.name).all()]
+                rows = recent_workouts_for_user(db, user.id)
+                return render_template("workouts.html", ex_names=ex_names, workouts=rows, form=form_vals)
 
-            # weight must be a number bigger than 0
-            try:
-                weight_val = float(weight_raw)
-                if weight_val < 0:
-                    raise ValueError
-            except ValueError:
-                flash("Weight must be a non-negative number.", "warning")
-                return redirect(url_for("workouts"))
+            weight_val = None
+            if form_vals["weight"] != "":
+                try:
+                    weight_val = float(form_vals["weight"])
+                    if weight_val < 0:
+                        raise ValueError
+                except ValueError:
+                    flash("Weight must be a non-negative number.", "warning")
+                    ex_names = [e.name for e in db.query(Exercise).filter_by(user_id=user.id).order_by(Exercise.name).all()]
+                    rows = recent_workouts_for_user(db, user.id)
+                    return render_template("workouts.html", ex_names=ex_names, workouts=rows, form=form_vals)
 
-            # --- look up or create the exercise ---
-            ex = db.query(Exercise).filter_by(user_id=user.id, name=ex_name).first()
+            # look up/create exercise
+            ex = db.query(Exercise).filter_by(user_id=user.id, name=form_vals["exercise"]).first()
             if not ex:
-                ex = Exercise(user_id=user.id, name=ex_name, tag="General")
+                ex = Exercise(user_id=user.id, name=form_vals["exercise"], tag="General")
                 db.add(ex); db.commit(); db.refresh(ex)
 
-            # --- save workout + set ---
-            w = Workout(user_id=user.id, date=date.fromisoformat(date_str), notes=notes)
+            # save workout + set
+            w = Workout(user_id=user.id, date=date.fromisoformat(form_vals["date"]), notes=form_vals["notes"])
             db.add(w); db.commit(); db.refresh(w)
 
-            db.add(Set(workout_id=w.id, exercise_id=ex.id, reps=int(reps_raw), weight=weight_val))
+            db.add(Set(workout_id=w.id, exercise_id=ex.id, reps=int(form_vals["reps"]), weight=weight_val))
             db.commit()
 
-            # --- log the action right after saving ---
             logger.info(
-                f"workout_created user={user.id} exercise={ex_name} "
-                f"reps={int(reps_raw)} weight={weight_val} date={date_str}"
+                f"workout_created user={user.id} exercise={form_vals['exercise']} "
+                f"reps={int(form_vals['reps'])} weight={weight_val} date={form_vals['date']}"
             )
-
             flash("Workout added!", "success")
             return redirect(url_for("workouts"))
 
-        # --- GET: render form + recent workouts ---
-        ex_names = [e.name for e in db.query(Exercise)
-                    .filter_by(user_id=user.id)
-                    .order_by(Exercise.name).all()]
-
-        items = (db.query(Workout)
-                   .filter_by(user_id=user.id)
-                   .order_by(Workout.date.desc())
-                   .limit(20).all())
-
-        rows = []
-        for w in items:
-            pairs = (db.query(Set, Exercise)
-                     .join(Exercise, Exercise.id == Set.exercise_id)
-                     .filter(Set.workout_id == w.id).all())
-            rows.append((w, [(ex.name, s.reps, s.weight) for s, ex in pairs]))
-
-        return render_template("workouts.html", ex_names=ex_names, workouts=rows)
+        # GET: render form + recent workouts
+        ex_names = [e.name for e in db.query(Exercise).filter_by(user_id=user.id).order_by(Exercise.name).all()]
+        rows = recent_workouts_for_user(db, user.id)
+        return render_template("workouts.html", ex_names=ex_names, workouts=rows, form={})
     finally:
         SessionLocal.remove()
 
@@ -288,6 +303,105 @@ def export_csv():
             mimetype="text/csv",
             headers={"Content-Disposition": "attachment; filename=gympal_export.csv"}
         )
+    finally:
+        SessionLocal.remove()
+
+@app.route("/workouts/set/<int:set_id>/edit", methods=["GET", "POST"])
+def edit_set(set_id: int):
+    db = SessionLocal()
+    try:
+        user = get_user(db)
+
+        # Load the Set and its parent Workout
+        s = db.get(Set, set_id)
+        if not s:
+            raise NotFound("Set not found")
+
+        w = db.get(Workout, s.workout_id)
+        if not w or w.user_id != user.id:
+            raise NotFound("Set not found")
+
+        # Get the exercise name for display
+        ex_name = s.exercise.name if s.exercise else "Unknown"
+
+        if request.method == "POST":
+            # Read input fields
+            date_str   = (request.form.get("date") or w.date.isoformat())
+            notes      = request.form.get("notes", "")
+            reps_raw   = (request.form.get("reps") or "").strip()
+            weight_raw = (request.form.get("weight") or "").strip()
+
+            # Validate reps
+            if not reps_raw.isdigit() or int(reps_raw) <= 0:
+                flash("Reps must be a positive whole number.", "warning")
+                return render_template(
+                    "workout_edit_set.html",
+                    set_obj=s, workout=w, exercise_name=ex_name
+                )
+
+            # Validate weight (allow blank = bodyweight)
+            weight_val = None
+            if weight_raw != "":
+                try:
+                    weight_val = float(weight_raw)
+                    if weight_val < 0:
+                        raise ValueError
+                except ValueError:
+                    flash("Weight must be a non-negative number.", "warning")
+                    return render_template(
+                        "workout_edit_set.html",
+                        set_obj=s, workout=w, exercise_name=ex_name
+                    )
+
+            # Apply updates
+            w.date   = date.fromisoformat(date_str)
+            w.notes  = notes
+            s.reps   = int(reps_raw)
+            s.weight = weight_val
+
+            db.commit()
+            logger.info(f"set_updated id={s.id} workout={w.id} reps={s.reps} weight={s.weight}")
+            flash("Workout updated!", "success")
+            return redirect(url_for("workouts"))
+
+        # GET request: render the edit form
+        return render_template(
+            "workout_edit_set.html",
+            set_obj=s, workout=w, exercise_name=ex_name
+        )
+
+    finally:
+        SessionLocal.remove()
+
+
+@app.post("/workouts/set/<int:set_id>/delete")
+def delete_set(set_id: int):
+    db = SessionLocal()
+    try:
+        user = get_user(db)
+
+        s = db.query(Set).filter(Set.id == set_id).first()
+        if not s:
+            raise NotFound("Set not found")
+
+        w = db.query(Workout).filter(Workout.id == s.workout_id).first()
+        if not w or w.user_id != user.id:
+            raise NotFound("Set not found")
+
+        db.delete(s)
+        db.commit()
+
+        # If the workout now has no sets, delete it too
+        remaining = db.query(Set).filter(Set.workout_id == w.id).count()
+        if remaining == 0:
+            db.delete(w)
+            db.commit()
+            logger.info(f"workout_deleted id={w.id} (empty after set deletion)")
+
+        logger.info(f"set_deleted id={set_id}")
+        flash("Workout deleted.", "info")
+        return redirect(url_for("workouts"))
+
     finally:
         SessionLocal.remove()
 
