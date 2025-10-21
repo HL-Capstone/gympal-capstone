@@ -2,20 +2,38 @@
 {% block content %}
 <h1 class="h4 mb-3">Dashboard</h1>
 
-<p class="text-muted">
-  Log at least two different weeks of <strong>Squat</strong> to see a forecast.
+<p class="text-muted mb-0">
+  Log at least two different weeks of an exercise to see its forecast.
 </p>
 <p class="text-muted">
-  Forecasts appear when at least two weeks of data are available.
+  Use the selector below to switch between exercises.
 </p>
 
-<!-- Give the chart a real height via a wrapper -->
-<div style="height: 320px;">
-  <canvas id="squatChart"></canvas>
+
+<!-- Exercise selector -->
+<div class="mb-3">
+  <label for="exerciseSelect" class="form-label">Select Exercise:</label>
+  <select id="exerciseSelect" class="form-select" style="max-width: 250px;">
+    {% for name in ex_names %}
+      <option value="{{ name }}" {% if name == default_ex %}selected{% endif %}>{{ name }}</option>
+    {% endfor %}
+  </select>
 </div>
+
+
+<!-- Give the chart a real height via a wrapper -->
+<div style="height: 520px;">
+  <canvas id="e1rmChart"></canvas>
+</div>
+
+<div id="emptyState" class="alert alert-info mt-3" style="display:none;">
+  Not enough data for a forecast yet. Log more workouts to unlock your trend line.
+</div>
+
 
 <!-- Chart.js (v4 UMD build) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<!-- Your chart code (served from /static) -->
+<!-- Your chart logic -->
 <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+
 {% endblock %}

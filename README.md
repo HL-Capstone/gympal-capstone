@@ -116,3 +116,52 @@ Endpoint	        Description
 /api/metrics/<exercise>	Returns weekly best e1RM + forecast (JSON)
 /dev/logs	        View recent log entries (dev only)
 /healthz	        Health check endpoint (verifies DB connectivity)
+
+# Week 6 LIve Deployment
+
+GymPal now supports **two environments**—a local development setup using SQLite and a production deployment on Vercel connected to Supabase.
+
+### Development (Local)
+
+Uses SQLite by default (instance/gympal.sqlite3).
+Environment variables are loaded from .env.
+** To run it locally run these commands in powershell below: **
+
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+$env:FLASK_APP="app:app"
+python -m flask run
+
+Then, Open the dashboard at http://127.0.0.1:5000
+Health check: visit /healthz — expected output is: {"status":"ok","db":"ok"}
+
+### To run it in the live production (Vercel + Supabase)
+
+It is hosted on Vercel using the Python Serverless runtime.
+Connected to a Supabase Session Pooler Postgres database.
+These are my environment variables set in Vercel → Settings → Environment Variables (Production):
+---
+FLASK_APP=app:app
+SECRET_KEY="123H&M"
+DATABASE_URL=postgresql+psycopg://postgres.cinvgilgmrfbfdjaqoeo:!Exiger2025@aws-1-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require
+APP_ENV=development
+---
+Deploy steps are to push the code to GitHub.
+Import the repo into Vercel.
+Add the environment variables above.
+Click Deploy and do the health check:
+https://gympal-capstone.vercel.app/healthz
+
+### Week 7 Known Issues & Future Improvements
+
+Known Issues:
+The edit function currently applies to individual sets only; users cannot yet modify the exercise name for a logged set.
+The dashboard requires at least one recorded set for an exercise to show data. Until then, the “No data” message appears.
+Mobile layout is functional but can feel tight on smaller screens like when viewing long lists of workouts.
+
+Future Improvements:
+Introduce a richer dashboard summary for new users (showing recent activity or top lifts even without forecast data).
+Improve the mobile layout with collapsible workout cards and responsive buttons.
+Add color theme customization and maybe a dark mode.
+Optional user authentication for multi-user tracking and data privacy (but this is unlikley)
